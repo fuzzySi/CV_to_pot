@@ -10,7 +10,9 @@
   hardware: 
   
   CV ins go into negative input of rail to rail op amp (eg MCP602), to clamp incoming voltage safely between 0 & 5v
+  
   this is read by ADC (ATtiny 85, 10 bit resolution)
+  
   value is translated to digital pot (MCP42xx or MCP41xx) via SPI (4x5x & 4x6x use 8 bit value, 4x3x & 4x4x are 7 bit)
   
   
