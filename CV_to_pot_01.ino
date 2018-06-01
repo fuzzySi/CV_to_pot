@@ -105,3 +105,189 @@ void writeMCP42xx(byte chip, byte address, byte value) {
 
   }
 */
+
+
+/*
+This is embarassing - here's some code I wrote a while ago to do same thing
+I think SPI doesn't work on At tiny hence this bit bangs it. 
+
+AT tiny to MCP4251 digipot v2
+
+VCR_MCP42x2_v01
+
+
+
+SPI heavily borrowed from http://little-scale.blogspot.co.uk/2007/07/spi-by-hand.html
+
+
+
+reads 0-5V from 2 jack sockets (with pots normalised to them)
+
+This then controls the wiper of a dual digital pot given CV control of parameters instead of a knob.
+
+you can add a pot/knob by making a voltage divider from 5 to 0V and normalising it onto CV jack input ie works if nothing plugged in
+
+*/
+
+
+
+  const byte dataOut = 0;  // IC pin 2  Data Out (MISO)
+
+  const byte clock = 1;  //  IC pin 3  Universal Serial Interface clock
+
+  const byte slaveSelectA = 3;  // IC pin 6 Slave Select
+
+  const byte jackOne =  A0; // A0, physical pin 13
+
+  const byte jackTwo = A1; // A1, physical pin 12
+
+  const int bitScale = 8; // scales 1023 down to value to send to pot: 8 if using a 7 bit pot, 4 if using an 8 bit pot
+
+
+
+  const byte toPotA = B00000000; // command byte to write to pot 0
+
+  const byte toPotB = B00010010; // command byte to write to pot 1
+
+  byte work = B00000000; // setup a working byte, used to bit shift the data out
+
+ 
+
+int valA = 0; // working values to read jack inputs 0-5V
+
+int valB = 0;
+
+
+
+void setup() {
+
+
+
+ //set pin modes
+
+ pinMode(slaveSelectA, OUTPUT);
+
+ pinMode(dataOut, OUTPUT);
+
+ pinMode(clock, OUTPUT);
+
+
+
+ //disable device to start with
+
+ digitalWrite(slaveSelectA, HIGH);
+
+ digitalWrite(dataOut, LOW);
+
+ digitalWrite(clock,LOW);
+
+}
+
+
+
+void spi_transfer(byte working) { // function to actually bit shift the data byte out
+
+    for(int i = 1; i <= 8; i++) { // setup a loop of 8 iterations, one for each bit
+
+    if (working > 127) { // test the most significant bit
+
+      digitalWrite (dataOut,HIGH); // if it is a 1 (ie. B1XXXXXXX), set the master out pin high
+
+     }
+
+      else {
+
+       digitalWrite (dataOut, LOW); // if it is not 1 (ie. B0XXXXXXX), set the master out pin low
+
+     }
+
+    digitalWrite (clock,HIGH); // set clock high, the pot IC will read the bit into its register
+
+    working = working << 1;
+
+    digitalWrite(clock,LOW); // set clock low, the pot IC will stop reading and prepare for the next iteration (next significant bit
+
+    }
+
+
+
+}
+
+
+
+void spi_out(int SS, byte command, byte data) { // SPI tranfer out function begins here
+
+    digitalWrite (SS, LOW); // set slave select low for a certain chip, defined in the argument in the main loop. selects the chip
+
+    work = command; // load up the command byte
+
+    spi_transfer(work); // transfer the work byte, which is equal to the command byte, out using spi
+
+    work = data; // let the work byte equal the data to the pot
+
+    spi_transfer(work); // transfer the work byte, which is equal to the data to the pot
+
+    digitalWrite(SS, HIGH); // set slave select high for a certain chip, defined in the argument in the main loop. deselcts the chip
+
+}
+
+
+
+void loop() {
+
+ 
+
+// syntax to send SPI:
+
+// spi_out(slaveSelectA, toPotA, j); // send out data to chip 1, pot 0
+
+// spi_out(slaveSelectA, toPotB, j); // send out data to chip 1, pot 1
+
+// spi_out(slaveSelectB, toPotA, j); // send out data to chip 2, pot 0
+
+
+
+// analogRead pin from (protected) input
+
+valA = analogRead(jackOne);
+
+// scale this from 0-5V to number between 0 & 256 = wiperA value
+
+valA /= bitScale; // to get to 7 bit wiper value (div by 4 if using 8 bit pot)
+
+valB = analogRead(jackTwo);
+
+valB /= bitScale; // to get to 7 bit wiper value
+
+
+
+/*
+
+// for testing, use random numbers changing every 3 secs so can see it easily
+
+int randomNumber = random(256);
+
+int valA = randomNumber;
+
+int valB = randomNumber;
+
+*/
+
+
+
+// write to digital pot - do one then next
+
+spi_out(slaveSelectA, toPotA, valA); // send out data to chip 1, pot 0
+
+spi_out(slaveSelectA, toPotB, valB); // send out data to chip 1, pot 1
+
+
+
+delay(10);
+
+}
+
+// end of code
+
+
+
